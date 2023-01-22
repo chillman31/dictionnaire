@@ -1,7 +1,6 @@
 const jsdom = require("jsdom");
 const { JSDOM } = jsdom;
-const fs = require('fs')
-const dico = require('./dictionnaire').map(element => element.toLowerCase());
+const fs = require('fs/promises')
 const sql = require('mssql');
 
 function compareAndRemove(mainArray, removeArray) {
@@ -9,6 +8,11 @@ function compareAndRemove(mainArray, removeArray) {
   return mainArray.filter(element => !removeSet.has(element));
 }
 
+const main = async () => {
+
+}
+
+main()
 const config = {
     user: 'khayyer',
     password: 'Empalot31.',
@@ -28,7 +32,7 @@ const req = async (word = word.toLowerCase(), request) => {
        const textbody = await body.text()
        const bodyHTML =  new JSDOM(textbody)
        const datas = [...bodyHTML.window.document.querySelectorAll('#definition > article > ul:nth-child(2) > li')]
-       .map(element => element.textContent.replace(/[\t\n]/g, ''))[0]
+       .map(element => element.textContent.replace(/[\t\n]/g, '')).slice(0, 3).join('--')
 
       return { word: word, data: datas }
     }
@@ -39,21 +43,21 @@ const req = async (word = word.toLowerCase(), request) => {
     
    sql.connect(config, async (err) => {
        if (err) console.log(err);
+       const word = await fs.readFile('./dictionnaire/exemple.txt', 'utf-8')
+       const result = JSON.parse(word).flat().filter(x => x)
        const request = new sql.Request();
-       const dicoBdd = await request.query(`SELECT name from mydef`)
-       const list = dicoBdd.recordset.map(x => x.name)
-       const dictionnaire = await compareAndRemove(dico, list ).sort()
+       //const dicoBdd = await request.query(`SELECT name from def`)
+       //const list = dicoBdd.recordset.map(x => x.name)
+       //const dictionnaire = await compareAndRemove(word, list ).sort()
         try {
-            let name, def; len = dictionnaire.length;
-            const request = new sql.Request();
-            for(let i = 0; i < len ; i++) {
-                let elements = await req(dictionnaire[i])
-                console.log(elements)
+            let name, def; len = result.length
+            for(let i = len - 1;  len > 0 ; i--) {
+                let elements = await req(result[i])
                 name= elements.word 
                 def = elements.data
-                request.input("name_" + i, sql.NVarChar, name);
-                request.input("def_" + i, sql.NVarChar, def);
-                request.query(`INSERT INTO mydef (name, def) VALUES (@name_${i}, @def_${i})`, (err, result) => {
+                request.input("name_" + i, sql.VarChar(150), name);
+                request.input("def_" + i, sql.VarChar(1000), def);
+                request.query(`INSERT INTO def (name, description) VALUES (@name_${i}, @def_${i})`, (err, result) => {
                     if (err) console.log(err);
                 });
             }
